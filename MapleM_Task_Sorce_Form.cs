@@ -15,6 +15,8 @@ using System.Runtime.CompilerServices;
 using Microsoft.Win32;
 using System.Xml.Linq;
 
+// ver1.12
+// リファクタリングはしてません
 namespace MapleStoryM_Task
 {    
     public partial class Form1 : Form
