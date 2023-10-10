@@ -18,13 +18,21 @@ using System.Xml.Linq;
 // ver1.12
 // リファクタリングはしてません
 namespace MapleStoryM_Task
-{    
+{
     public partial class Form1 : Form
     {
         public static int form_Height;
         public static int NowDay;
-        public bool weekchaged;
+        public static int window_status;
+        public static int dataopen_ok;
+        public string weekchaged;
         public int eruda;
+
+        [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+        static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        static extern IntPtr SetParent(IntPtr hWndChild, IntPtr hWndNewParent);
 
         public Form1()
         {
@@ -37,7 +45,8 @@ namespace MapleStoryM_Task
             DateTime dateTime = DateTime.Now;
             NowDay = dateTime.Day;
             Console.WriteLine(NowDay);
-            weekchaged = false;
+            weekchaged = dateTime.DayOfWeek.ToString();
+
         }
         //
         //初期化処理
@@ -50,8 +59,9 @@ namespace MapleStoryM_Task
 
             if (File.Exists(filePath))
             {
-                
-            } else
+                dataopen_ok = 1;
+            }
+            else
             {
                 MessageBox.Show("ファイルが見つかりませんでした。", "警告", MessageBoxButtons.OK);
                 return;
@@ -59,69 +69,57 @@ namespace MapleStoryM_Task
             StreamReader sr = new StreamReader("data.csv");
             int lines = int.Parse(sr.ReadLine());
             string str = sr.ReadLine();
-           
+
             string[] whdata = str.Split(',');
-            int[] n = new int[5];
-            string[] jw = new string[9];
-            n[0] = int.Parse(whdata[0]);
-            n[1] = int.Parse(whdata[1]);
-            n[2] = int.Parse(whdata[2]);
-            n[3] = int.Parse(whdata[3]);
-            n[4] = int.Parse(whdata[13]); //エルダ
-            jw[0] = whdata[4].ToString();
-            jw[1] = whdata[5].ToString();
-            jw[2] = whdata[6].ToString();
-            jw[3] = whdata[7].ToString();
-            jw[4] = whdata[8].ToString();
-            jw[5] = whdata[9].ToString();
-            jw[6] = whdata[10].ToString();
-            jw[7] = whdata[11].ToString();
-            jw[8] = whdata[12].ToString();
 
-            this.Location = new Point(n[0],n[1]);
-            this.Width = n[2];
-            this.Height = n[3];
+            //ウィンドウサイズ指定
+            this.Location = new Point(int.Parse(whdata[0]), int.Parse(whdata[1]));
+            if (this.Location.X < 1 || this.Location.Y < 1) { new Point(100, 100); }
 
-            //エルダの表示
-            eruda = n[4];
-            erudaShow();            
+            //ウィンドウポジション指定
+            this.Width = int.Parse(whdata[2]);
+            this.Height = int.Parse(whdata[3]);
 
-            this.Column_Red.Visible = Convert.ToBoolean(jw[0]);
-            this.Column_Blue.Visible = Convert.ToBoolean(jw[1]);
-            this.Column_Green.Visible = Convert.ToBoolean(jw[2]);
-            this.Column_Yellow.Visible = Convert.ToBoolean(jw[3]);
-            this.Column_Purple.Visible = Convert.ToBoolean(jw[4]);
-            this.Column_jacm.Visible = Convert.ToBoolean(jw[5]);
-            this.Column_honetail.Visible = Convert.ToBoolean(jw[6]);
-            this.Column_pink.Visible = Convert.ToBoolean(jw[7]);
-            this.Column_signus.Visible = Convert.ToBoolean(jw[8]);
+            // エルダ
+            eruda = int.Parse(whdata[4]);
+            erudaShow();
+
+            this.Column_Red.Visible = Convert.ToBoolean(whdata[5]);     // 赤
+            this.Column_Blue.Visible = Convert.ToBoolean(whdata[6]);    // 青
+            this.Column_Green.Visible = Convert.ToBoolean(whdata[7]);   // 緑
+            this.Column_Yellow.Visible = Convert.ToBoolean(whdata[8]); // 黄
+            this.Column_Purple.Visible = Convert.ToBoolean(whdata[9]); // 紫
+
+            this.Column_jacm.Visible = Convert.ToBoolean(whdata[10]);       // ジャクム
+            this.Column_honetail.Visible = Convert.ToBoolean(whdata[11]);   // ホーンテイル
+            this.Column_pink.Visible = Convert.ToBoolean(whdata[12]);       // ピンクビーン
+            this.Column_signus.Visible = Convert.ToBoolean(whdata[13]);     // シグナス
 
             form_Height = lines * 23;
 
             string line = "";
-            string[] array = new string[17];
-  
+            string[] array = new string[19];
+
             //残りの全行読み込み
-            for(int i = 0; i < lines; i++)
+            for (int i = 0; i < lines; i++)
             {
-                line =  sr.ReadLine();
+                line = sr.ReadLine();
 
                 array = line.Split(',');
 
                 int m = array[0].Length;
-                if(m < 2)
+                if (m < 2)
                 {
                     array[0] = "0" + array[0];
                 }
-                if (array[1] == null) { array[1] = ""; }
-                    dataGridView1.Rows.Add(array[0].ToString(), array[1],
+                dataGridView1.Rows.Add(array[0].ToString(), array[1],
                         Convert.ToBoolean(array[2]), Convert.ToBoolean(array[3]),
                         Convert.ToBoolean(array[4]), Convert.ToBoolean(array[5]),
                         Convert.ToBoolean(array[6]), Convert.ToBoolean(array[7]),
                         Convert.ToBoolean(array[8]), Convert.ToBoolean(array[9]),
                         Convert.ToBoolean(array[10]), Convert.ToBoolean(array[11]),
-                        array[12].ToString(), array[13].ToString(),
-                        array[14].ToString(), array[15].ToString(), array[16].ToString());
+                        Convert.ToBoolean(array[12]), Convert.ToBoolean(array[13]),
+                        array[14].ToString(), array[15].ToString(), array[16].ToString(), array[17].ToString(), array[18].ToString());
             }
             dataGridView1.CommitEdit(DataGridViewDataErrorContexts.Commit);
         }
@@ -130,27 +128,28 @@ namespace MapleStoryM_Task
         //
         private void 上へToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            dataopen_ok = 0;
             if (dataGridView1.Rows.Count == 0) { return; }
             int selectrow = dataGridView1.CurrentRow.Index;
             if (selectrow == 0) { return; }
 
             //データの一時退避
-            string[] temp = new string[17];
-            bool[]    temp2 = new bool[17];
+            string[] temp = new string[19];
+            bool[] temp2 = new bool[19];
             temp[0] = dataGridView1.Rows[selectrow - 1].Cells[0].Value.ToString();
             temp[1] = dataGridView1.Rows[selectrow - 1].Cells[1].Value.ToString();
 
-            for (int i = 2; i < 12; i++)
+            for (int i = 2; i < 14; i++)
             {
                 temp2[i] = Convert.ToBoolean(dataGridView1.Rows[selectrow - 1].Cells[i].Value);
             }
 
-            for (int i = 12; i < 17; i++)
+            for (int i = 14; i < 19; i++)
             {
                 temp[i] = dataGridView1.Rows[selectrow - 1].Cells[i].Value.ToString();
             }
             //上の行に選択した行をコピー
-            for (int i = 1; i < 17; i++)
+            for (int i = 1; i < 19; i++)
             {
                 dataGridView1.Rows[selectrow - 1].Cells[i].Value = dataGridView1.Rows[selectrow].Cells[i].Value;
             }
@@ -158,19 +157,20 @@ namespace MapleStoryM_Task
             dataGridView1.Rows[selectrow].Cells[1].Value = temp[1];
 
             //bool型を移動
-            for (int i = 2; i < 12; i++)
+            for (int i = 2; i < 14; i++)
             {
                 dataGridView1.Rows[selectrow].Cells[i].Value = temp2[i];
             }
 
             //string型を移動
-            for (int i = 13; i < 17; i++)
+            for (int i = 14; i < 19; i++)
             {
                 dataGridView1.Rows[selectrow].Cells[i].Value = temp[i];
             }
             //選択行を上に移動
-            dataGridView1.CurrentCell = dataGridView1.Rows[selectrow-1].Cells[0];
-            dataGridView1.CommitEdit(DataGridViewDataErrorContexts.Commit);
+            dataGridView1.CurrentCell = dataGridView1.Rows[selectrow - 1].Cells[0];
+             dataGridView1.CommitEdit(DataGridViewDataErrorContexts.Commit);
+            dataopen_ok = 1;
         }
         //
         //フォームをクリックされたときの処理
@@ -178,13 +178,13 @@ namespace MapleStoryM_Task
         private void dataGridView1_MouseUp(object sender, MouseEventArgs e)
         {
             var selectrow = dataGridView1.CurrentRow.Index;
-            this.dataGridView1.EndEdit();
         }
         //
         //下へボタンの処理
         //
         private void 下へDToolStripMenuItem_Click(object sender, EventArgs e)
         {
+            dataopen_ok = 0;
             if (dataGridView1.Rows.Count == 0) { return; }
             //一番下なら処理しない
             if (dataGridView1.CurrentRow.Index + 1 >= dataGridView1.Rows.Count) { return; }
@@ -193,75 +193,76 @@ namespace MapleStoryM_Task
             var zero = dataGridView1.Rows[selectrow].Cells[0].Value.ToString();
 
             //一時退避
-            string[] temp = new string[17];            
-            bool[] temp2 = new bool[17];
+            string[] temp = new string[19];
+            bool[] temp2 = new bool[19];
 
             temp[0] = dataGridView1.Rows[selectrow + 1].Cells[0].Value.ToString();
             temp[1] = dataGridView1.Rows[selectrow + 1].Cells[1].Value.ToString();
 
             //bool型を移動
-            for (int i = 2; i < 12; i++)
+            for (int i = 2; i < 14; i++)
             {
                 temp2[i] = Convert.ToBoolean(dataGridView1.Rows[selectrow + 1].Cells[i].Value);
             }
 
             //string型を移動
-            for (int i = 12; i < 17; i++)
+            for (int i = 14; i < 19; i++)
             {
                 temp[i] = dataGridView1.Rows[selectrow + 1].Cells[i].Value.ToString();
             }
 
             // 上の行に選択した行をコピー
-            for (int i = 1; i < 17; i++)
-                {
-                    dataGridView1.Rows[selectrow+1].Cells[i].Value = dataGridView1.Rows[selectrow].Cells[i].Value;
-                }
+            for (int i = 1; i < 19; i++)
+            {
+                dataGridView1.Rows[selectrow + 1].Cells[i].Value = dataGridView1.Rows[selectrow].Cells[i].Value;
+            }
 
             // 選択行に退避したデータを格納
             dataGridView1.Rows[selectrow].Cells[0].Value = zero.ToString();
             dataGridView1.Rows[selectrow].Cells[1].Value = temp[1];
 
-            for (int i = 2; i < 12; i++)
+            for (int i = 2; i < 14; i++)
             {
                 dataGridView1.Rows[selectrow].Cells[i].Value = temp2[i];
             }
 
-            for (int i = 12; i < 17; i++)
+            for (int i = 14; i < 19; i++)
             {
                 dataGridView1.Rows[selectrow].Cells[i].Value = temp[i];
             }
             //選択行を下に移動
             dataGridView1.CurrentCell = dataGridView1.Rows[selectrow + 1].Cells[0];
             dataGridView1.CommitEdit(DataGridViewDataErrorContexts.Commit);
+            dataopen_ok = 1;
         }
         //
         //削除ボタンの処理
         //
         private void 削除EToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if(dataGridView1.Rows.Count == 0) { return; }
+            if (dataGridView1.Rows.Count == 0) { return; }
             int selectrow = dataGridView1.CurrentRow.Index;
             var id = dataGridView1.Rows[selectrow].Cells[0].Value;
             var name = dataGridView1.Rows[selectrow].Cells[1].Value;
 
             DialogResult dr = MessageBox.Show
-                ("ID：「" + id + "」\n" + name + "を削除しますか？", "確認", MessageBoxButtons.OKCancel,MessageBoxIcon.Warning);
+                ("ID：「" + id + "」\n" + name + "を削除しますか？", "確認", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
             if (dr == DialogResult.OK)
             {
                 int n = selectrow;
 
                 //行数の最後から指定位置までIDを修正する
-                for(int i = dataGridView1.Rows.Count-1; i > n ; i--)
+                for (int i = dataGridView1.Rows.Count - 1; i > n; i--)
                 {
-                    dataGridView1.Rows[i].Cells[0].Value = dataGridView1.Rows[i-1].Cells[0].Value;
-                }     
+                    dataGridView1.Rows[i].Cells[0].Value = dataGridView1.Rows[i - 1].Cells[0].Value;
+                }
                 //指定行を削除
                 dataGridView1.Rows.RemoveAt(selectrow);
 
                 if (this.Height > 18)
                 {
                     this.Height -= 26;
-                    if(this.Height < 18)
+                    if (this.Height < 18)
                     {
                         this.Height = 18;
                     }
@@ -274,71 +275,21 @@ namespace MapleStoryM_Task
         //
         private void 保存SToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            //即反映
-            dataGridView1.CommitEdit(DataGridViewDataErrorContexts.Commit);
-            int n = dataGridView1.Rows.Count;
-
             //ファイルの有無を確認して、有なら上書きを尋ねる
-            StreamReader sr = new StreamReader("data.csv");
+            //StreamReader sr = new StreamReader("data.csv");
 
-            if (sr != null)
-            {
-                DialogResult dr = MessageBox.Show("ファイルを上書きしますか？", "確認", MessageBoxButtons.YesNo);
-                if (dr == DialogResult.No) {
-                    sr.Close();
-                    return;
-                }
-            }
+            //if (sr != null)
+            //{
+            //    DialogResult dr = MessageBox.Show("ファイルを上書きしますか？", "確認", MessageBoxButtons.YesNo);
+            //    if (dr == DialogResult.No)
+            //    {
+            //        sr.Close();
+            //        return;
+           /// //    }
+            //}
             //一旦閉じる
-            sr.Close();
-            
-            //書き込み先指定
-            StreamWriter file = new StreamWriter("data.csv", false, Encoding.UTF8);
-
-            // ファイルに書き込む
-            file.WriteLine(n);
-            file.WriteLine(this.Location.X + "," + this.Location.Y + ","
-                + this.Width.ToString() + "," + this.Height.ToString() + ","
-                + this.Column_Red.Visible.ToString() + ","
-                + this.Column_Blue.Visible.ToString() + ","
-                + this.Column_Green.Visible.ToString() + ","
-                + this.Column_Yellow.Visible.ToString() + ","
-                + this.Column_Purple.Visible.ToString() + ","
-                + this.Column_jacm.Visible.ToString() + ","
-                + this.Column_honetail.Visible.ToString() + ","
-                + this.Column_pink.Visible.ToString() + ","
-                + this.Column_signus.Visible.ToString() + "," + eruda);
-
-            for (int i = 0; i < n; i++)
-            {
-                for(int j = 0; j < 17; j++)
-                {
-                    file.Write(dataGridView1.Rows[i].Cells[j].Value);
-                    if (j < 16)
-                    {
-                        file.Write(",");
-                    }
-                    else if(j == 16)
-                    {
-                        file.Write("\n");
-                    }
-                }
-            }            
-            // ファイルを閉じる
-            file.Close();
-        }
-        //
-        //データが更新されたとき
-        //
-        private void dataGridView1_CurrentCellDirtyStateChanged(object sender, EventArgs e)
-        {            
-            var dataGridView1 = sender as DataGridView;
-            dataGridView1.CommitEdit(DataGridViewDataErrorContexts.Commit);
-            //コミットされていない内容がある
-            if (dataGridView1.IsCurrentCellDirty)
-            {
-                dataGridView1.CommitEdit(DataGridViewDataErrorContexts.Commit);
-            }
+           // sr.Close();
+            dataSave();
         }
         //
         //追加ボタンの処理
@@ -347,7 +298,7 @@ namespace MapleStoryM_Task
         {
             dataGridView1.Sort(Column_id,
                      System.ComponentModel.ListSortDirection.Ascending);
-            if (System.Windows.Forms.Screen.PrimaryScreen.Bounds.Height-300 > this.Height)
+            if (System.Windows.Forms.Screen.PrimaryScreen.Bounds.Height - 300 > this.Height)
             {
                 this.Height += 26;
             }
@@ -356,16 +307,16 @@ namespace MapleStoryM_Task
 
             if (n < 9)
             {
-                g = ("0" + (n+1)).ToString();
+                g = ("0" + (n + 1)).ToString();
             }
             else
             {
-                g = (n+1).ToString();
+                g = (n + 1).ToString();
             }
-                dataGridView1.Rows.Add(g, " ", false, false,
-                                                false, false, false,
-                                                    false, false, false, false, false,
-                                                    "", "", "", "", "");
+            dataGridView1.Rows.Add(g, "", false, false, false, false,
+                                            false, false, false,
+                                                false, false, false, false, false,
+                                                "", "", "", "", "");
             dataGridView1.CurrentCell = dataGridView1.Rows[n].Cells[0];
         }
         //
@@ -393,29 +344,13 @@ namespace MapleStoryM_Task
                 int n = dataGridView1.Rows.Count;
                 for (int i = 0; i < n; i++)
                 {
-                    dataGridView1.Rows[i].Cells[2].Value = 0;
+                    dataGridView1.Rows[i].Cells[2].Value = false;
+                    dataGridView1.Rows[i].Cells[4].Value = false;
+                    dataGridView1.Rows[i].Cells[5].Value = false;
                 }
                 dataGridView1.CurrentCell = dataGridView1.Rows[0].Cells[0];
                 dataGridView1.CommitEdit(DataGridViewDataErrorContexts.Commit);
             }
-        }
-        private void エルダの初期化ToolStripMenuItem1_Click(object sender, EventArgs e)
-        {
-            if (dataGridView1.Rows.Count == 0) { return; }
-            dataGridView1.CommitEdit(DataGridViewDataErrorContexts.Commit);
-            DialogResult dr = MessageBox.Show
-               ("エルダを初期化しますか？", "確認", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
-            if (dr == DialogResult.OK)
-            {
-                int n = dataGridView1.Rows.Count;
-                for (int i = 0; i < n; i++)
-                {
-                    dataGridView1.Rows[i].Cells[4].Value = 0;
-                    dataGridView1.Rows[i].Cells[5].Value = 0;
-                    dataGridView1.Rows[i].Cells[6].Value = 0;
-                }
-            }
-            dataGridView1.CommitEdit(DataGridViewDataErrorContexts.Commit);
         }
         private void 週間の初期化ToolStripMenuItem_Click(object sender, EventArgs e)
         {
@@ -428,11 +363,14 @@ namespace MapleStoryM_Task
                 int n = dataGridView1.Rows.Count;
                 for (int i = 0; i < n; i++)
                 {
-                    dataGridView1.Rows[i].Cells[3].Value = 0;
+                    dataGridView1.Rows[i].Cells[3].Value = false;
                 }
+                dataGridView1.CommitEdit(DataGridViewDataErrorContexts.Commit);
             }
-            dataGridView1.CommitEdit(DataGridViewDataErrorContexts.Commit);
         }
+        //
+        // 日課の初期化
+        //
         private void timer_Tick(object sender, EventArgs e)
         {
             DateTime d = DateTime.Now;
@@ -440,39 +378,41 @@ namespace MapleStoryM_Task
             if (dataGridView1.Rows.Count == 0) { return; }
             if (NowDay != d.Day)
             {
-                dataGridView1.CommitEdit(DataGridViewDataErrorContexts.Commit);
                 int n = dataGridView1.Rows.Count;
                 for (int i = 0; i < n; i++)
                 {
                     dataGridView1.Rows[i].Cells[2].Value = false;
+                    dataGridView1.Rows[i].Cells[4].Value = false;
+                    dataGridView1.Rows[i].Cells[5].Value = false;
                 }
-                NowDay = d.Day;                
+                NowDay = d.Day;
+                dataGridView1.CommitEdit(DataGridViewDataErrorContexts.Commit);
             }
             //週間のリセット
-            if (d.DayOfWeek == DayOfWeek.Monday && weekchaged == false)
+            //if (d.DayOfWeek == DayOfWeek.Monday && weekchaged == false)
+            if (d.DayOfWeek == DayOfWeek.Monday && weekchaged == "Sunday")
             {
-                dataGridView1.CommitEdit(DataGridViewDataErrorContexts.Commit);
                 int m = dataGridView1.Rows.Count;
                 //週間欄のリセット
                 for (int i = 0; i < m; i++)
-                    {
-                        dataGridView1.Rows[i].Cells[3].Value = false;
-                    }                
+                {
+                    dataGridView1.Rows[i].Cells[3].Value = false;
+                }
                 //エルダ欄のリセット
                 for (int i = 0; i < m; i++)
                 {
-                    dataGridView1.Rows[i].Cells[4].Value = false;
-                    dataGridView1.Rows[i].Cells[5].Value = false;
                     dataGridView1.Rows[i].Cells[6].Value = false;
+                    dataGridView1.Rows[i].Cells[7].Value = false;
+                    dataGridView1.Rows[i].Cells[8].Value = false;
                 }
-                weekchaged = true;
-            }            
-            dataGridView1.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                weekchaged = "Monday";
+                dataGridView1.CommitEdit(DataGridViewDataErrorContexts.Commit);
+            }
         }
 
         private void 赤ToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if(this.Column_Red.Visible == true) { this.Column_Red.Visible = false; }
+            if (this.Column_Red.Visible == true) { this.Column_Red.Visible = false; }
             else
             {
                 this.Column_Red.Visible = true;
@@ -526,7 +466,7 @@ namespace MapleStoryM_Task
 
         private void ホーンテイルToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if(this.Column_honetail.Visible == true) { this.Column_honetail.Visible = false; }
+            if (this.Column_honetail.Visible == true) { this.Column_honetail.Visible = false; }
             else
             {
                 this.Column_honetail.Visible = true;
@@ -553,9 +493,9 @@ namespace MapleStoryM_Task
 
         private void toolStripMenuItem2_Click(object sender, EventArgs e)
         {
-            if(eruda == 0) { eruda++; }
-            else if(eruda == 1) { eruda++; }
-            else if(eruda == 2) { eruda++; }
+            if (eruda == 0) { eruda++; }
+            else if (eruda == 1) { eruda++; }
+            else if (eruda == 2) { eruda++; }
             else
             {
                 eruda = 0;
@@ -588,6 +528,81 @@ namespace MapleStoryM_Task
                     this.Column_Eluda3.Visible = true;
                     break;
             }
+        }
+        private void toolStripMenuItemTopMost_Click(object sender, EventArgs e)
+        {
+            if (window_status == 0)
+            {
+                window_status = 1;
+                this.TopMost = true;
+                toolStripMenuItem4.Text = "最前面に表示中(&W)";
+            }
+            else
+            {
+                window_status = 0;
+                this.TopMost = false;
+                toolStripMenuItem4.Text = "最前面を解除中(&W)";
+            }
+        }
+
+        private void dataSave()
+        {
+            //書き込み先指定
+            StreamWriter file = new StreamWriter("data.csv", false, Encoding.UTF8);
+
+            // ファイルに書き込む
+            int n = dataGridView1.Rows.Count;
+            file.WriteLine(n);
+            file.WriteLine(this.Location.X + "," + this.Location.Y + ","
+                + this.Width.ToString() + "," + this.Height.ToString() + ","
+                + eruda + ","
+                + this.Column_Red.Visible.ToString() + ","
+                + this.Column_Blue.Visible.ToString() + ","
+                + this.Column_Green.Visible.ToString() + ","
+                + this.Column_Yellow.Visible.ToString() + ","
+                + this.Column_Purple.Visible.ToString() + ","
+                + this.Column_jacm.Visible.ToString() + ","
+                + this.Column_honetail.Visible.ToString() + ","
+                + this.Column_pink.Visible.ToString() + ","
+                + this.Column_signus.Visible.ToString());
+
+            for (int i = 0; i < n; i++)
+            {
+                for (int j = 0; j < 19; j++)
+                {
+                    if (dataGridView1.Rows[i].Cells[18].Value == null) { dataGridView1.Rows[i].Cells[18].Value = "".ToString(); }
+                    file.Write(dataGridView1.Rows[i].Cells[j].Value.ToString());
+                    if (j < 18)
+                    {
+                        file.Write(",");
+                    }
+                    else if (j == 18)
+                    {
+                        file.Write("\n");
+                    }
+                }
+            }
+            // ファイルを閉じる
+            file.Close();
+        }
+
+        private void dataGridView1_CurrentCellChanged(object sender, EventArgs e)
+        {
+            var dgv = (DataGridView)sender;
+            if (dgv.IsCurrentCellDirty)
+            {
+                dgv.CommitEdit(DataGridViewDataErrorContexts.Commit);
+            }
+        }
+
+        private void 保存ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            dataSave();
+        }
+
+        private void dataGridView1_CurrentCellDirtyStateChanged(object sender, EventArgs e)
+        {
+            dataSave();
         }
     }
 }
