@@ -1,0 +1,522 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Diagnostics;
+using System.Drawing;
+using System.Drawing.Printing;
+using System.IO;
+using System.Linq;
+using System.Security.Cryptography.X509Certificates;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace MapleStory_Task_v2
+{
+    public partial class Form : System.Windows.Forms.Form
+    {
+        const bool debugMode = false;       // デバッグするときは"true"に
+
+        const int FORM_MIN_HEIGHT = 130;    // フォームの高さ最小限
+        const int CELL_MAX = (19);          // 扱うセルの数
+
+        public bool windowFront = false;  // 最前面の状態           
+        public bool dataOpen = false;       // 読み込みが全て終わったら(1)を入れ保存可能フラグを建てる
+        public int eluda;                   // エルダの表示数
+        public string JapanWeekName;        // 曜日の日本語用
+
+        DateTime startTimeData = DateTime.Now; // 起動時の時間を保存
+
+        public struct WindowData
+        {
+            public int size_X, size_Y,
+                pozision_X, pozision_Y;
+        }        
+
+        public Form()
+        {
+            InitializeComponent();
+
+            // デバッグ用
+            if(debugMode) 保存ToolStripMenuItem.Visible = true;    // 保存ボタン非表示
+        }
+        private void Form_Load(object sender, EventArgs e)
+        {
+            FileLoad();
+        }
+
+        private void FileLoad() // ファイルの読み込み＆反映
+        {
+            string filePath = "data.csv";
+
+            // 読み込み成功したら
+            if (File.Exists(filePath)) {
+                StreamReader sr = new StreamReader("data.csv");
+                int lines = int.Parse(sr.ReadLine());
+                string str = sr.ReadLine();
+                string[] textData = str.Split(',');
+
+                // ウィンドウデータ：キャスト
+                WindowData winData = new WindowData();                
+                winData.pozision_X = int.Parse(textData[0]);
+                winData.pozision_Y = int.Parse(textData[1]);
+                winData.size_X = int.Parse(textData[2]);
+                winData.size_Y = int.Parse(textData[3]);
+
+                // 異常なデータだったら：修正
+                if (winData.pozision_X < 0) winData.pozision_X = 0;
+                if (winData.pozision_Y < 0) winData.pozision_Y = 0;
+                if (winData.size_X < 0 || winData.size_X > 1920 ) winData.size_X = 200;
+                if (winData.size_Y < 0 || winData.size_Y > 1080 ) winData.size_Y = FORM_MIN_HEIGHT;
+
+                this.Location = new Point(winData.pozision_X, winData.pozision_Y);
+                this.Size = new Size(winData.size_X, winData.size_Y);
+
+                // エルダの表示：セット
+                eluda = int.Parse(textData[4]);
+                if (eluda > 3) eluda = 3;
+                EludaShow(eluda);
+
+                // ジュエル・ボス表示：セット
+                this.Column_Juwel_Red.Visible = Convert.ToBoolean(textData[5]); // 赤
+                this.Column_Juwel_Blue.Visible = Convert.ToBoolean(textData[6]); // 青
+                this.Column_Juwel_Green.Visible = Convert.ToBoolean(textData[7]); // 緑
+                this.Column_Juwel_Yellow.Visible = Convert.ToBoolean(textData[8]); // 黄
+                this.Column_Juwel_Purple.Visible = Convert.ToBoolean(textData[9]); // 紫
+
+                this.Column_Jack.Visible = Convert.ToBoolean(textData[10]);       // ジャクム
+                this.Column_HoneTail.Visible = Convert.ToBoolean(textData[11]);   // ホーンテイル
+                this.Column_PinkBeen.Visible = Convert.ToBoolean(textData[12]);       // ピンクビーン
+                this.Column_Signus.Visible = Convert.ToBoolean(textData[13]);     // シグナス
+                               
+
+                string line;
+
+                string[] array = new string[CELL_MAX];
+
+                //残りの全行読み込み
+                for (int i = 0; i < lines; i++)
+                {
+                    line = sr.ReadLine();                    
+
+                    array = line.Split(',');
+
+                    int id_Number = array[0].Length;
+                    if (id_Number < 2)
+                    {
+                        array[0] = "0" + array[0];
+                    }
+
+                    dataGridView.Rows.Add(
+                        array[0].ToString(),            // ID
+                        array[1],                       // キャラクター名
+                        Convert.ToBoolean(array[2]),    // 日課                  
+                        Convert.ToBoolean(array[3]),    // 週間
+                        Convert.ToBoolean(array[4]),    // ミニダン
+                        Convert.ToBoolean(array[5]),    // 遠征隊
+                        Convert.ToBoolean(array[6]),    // エルダ(1)
+                        Convert.ToBoolean(array[7]),    // エルダ(2)
+                        Convert.ToBoolean(array[8]),    // エルダ(3)
+                        Convert.ToBoolean(array[9]),    // 赤
+                        Convert.ToBoolean(array[10]),   // 青
+                        Convert.ToBoolean(array[11]),   // 緑
+                        Convert.ToBoolean(array[12]),   // 黄
+                        Convert.ToBoolean(array[13]),   // 紫
+                        array[14].ToString(),           // ジャクム
+                        array[15].ToString(),           // ホーンテイル
+                        array[16].ToString(),           // ピンクビーン
+                        array[17].ToString(),           // シグナス
+                        array[18].ToString());          // コメント
+                }                
+                sr.Close();
+                dataOpen = true;
+            } else
+            {
+                MessageBox.Show("ファイルが見つかりませんでした。", "警告", MessageBoxButtons.OK);
+                return;
+            }
+            dataGridView.CommitEdit(DataGridViewDataErrorContexts.Commit);
+        }
+
+        private void DataSave()
+        {
+            // ファイルに書き込む
+            int n = dataGridView.Rows.Count;
+
+            // nullが入力されたら一旦スキップ
+            for (int i = 0; i < n; i++)
+            {
+                if (dataGridView.Rows[i].Cells[1].Value == null)
+                {
+                    dataGridView.Rows[i].Cells[1].Value = "".ToString();
+                    return;
+                }
+
+                for (int j = 14; j < CELL_MAX; j++)
+                {    
+                    if (dataGridView.Rows[i].Cells[j].Value == null) {
+                    dataGridView.Rows[i].Cells[j].Value = "".ToString();
+                    return;
+                    }
+                }
+            }
+            
+            //書き込み先指定
+            StreamWriter file = new StreamWriter("data.csv", false, Encoding.UTF8);            
+                    
+            file.WriteLine(n);
+            file.WriteLine(this.Location.X + "," + this.Location.Y + ","
+                + this.Width.ToString() + "," + this.Height.ToString() + ","
+                + eluda + ","
+                + this.Column_Juwel_Red.Visible.ToString() + ","
+                + this.Column_Juwel_Blue.Visible.ToString() + ","
+                + this.Column_Juwel_Green.Visible.ToString() + ","
+                + this.Column_Juwel_Yellow.Visible.ToString() + ","
+                + this.Column_Juwel_Purple.Visible.ToString() + ","
+                + this.Column_Jack.Visible.ToString() + ","
+                + this.Column_HoneTail.Visible.ToString() + ","
+                + this.Column_PinkBeen.Visible.ToString() + ","
+                + this.Column_Signus.Visible.ToString());
+
+            for (int i = 0; i < n; i++)
+            {
+                for (int j = 0; j < CELL_MAX; j++)
+                {
+                    file.Write(dataGridView.Rows[i].Cells[j].Value.ToString());
+                    if (j < 18)
+                    {
+                        file.Write(",");
+                    }
+                    else if (j == 18)
+                    {
+                        file.Write("\n");
+                    }
+                }
+            }
+            // ファイルを閉じる
+            file.Close();
+        } // ファイルの保存処理
+
+        private void EludaShow(int data)
+        {
+            switch (data)
+            {
+                case 3:
+                    this.Column_Eluda1.Visible = true;
+                    this.Column_Eluda2.Visible = true;
+                    this.Column_Eluda3.Visible = true;
+                    break;
+                case 2:
+                    this.Column_Eluda1.Visible = true;
+                    this.Column_Eluda2.Visible = true;
+                    this.Column_Eluda3.Visible = false;
+                    break;
+                case 1:
+                    this.Column_Eluda1.Visible = true;
+                    this.Column_Eluda2.Visible = false;
+                    this.Column_Eluda3.Visible = false;
+                    break;
+                case 0:
+                    this.Column_Eluda1.Visible = false;
+                    this.Column_Eluda2.Visible = false;
+                    this.Column_Eluda3.Visible = false;
+                    break;
+            }
+        } // エルダの表示処理
+
+        private void DayDataClear() // 日課のクリア
+        {
+            if (dataGridView.Rows.Count == 0) return;
+            int n = dataGridView.Rows.Count;
+
+            for(int i = 0; i < n; i++) {
+                dataGridView.Rows[i].Cells[2].Value = false; // 日課
+                dataGridView.Rows[i].Cells[4].Value = false; // ミニダン
+                dataGridView.Rows[i].Cells[5].Value = false; // 遠征隊
+            }
+        }
+
+        private void WeekDataClear() // 週間のクリア
+        {
+            if (dataGridView.Rows.Count == 0) return;
+            int n = dataGridView.Rows.Count;
+
+            for (int i = 0; i < n; i++) {
+                dataGridView.Rows[i].Cells[3].Value = false; // 週間
+                dataGridView.Rows[i].Cells[6].Value = false; // エルダ(1)
+                dataGridView.Rows[i].Cells[7].Value = false; // エルダ(2)
+                dataGridView.Rows[i].Cells[8].Value = false; // エルダ(3)
+            }
+        }
+
+        // 値の更新を監視
+        private void DataGridView_CurrentCellDirtyStateChanged(object sender, EventArgs e)
+        {
+            var dgv = (DataGridView)sender;
+            if (dgv.IsCurrentCellDirty)
+            {
+                dgv.CommitEdit(DataGridViewDataErrorContexts.Commit);
+            }
+        }
+
+        // 値の更新があったら保存
+        private void DataGridView_CellValueChanged(object sender, DataGridViewCellEventArgs e)
+        {
+            if(!debugMode)
+            if (dataOpen) DataSave();
+        }
+
+        //////////////////////////////////////////////////////
+        // クリック処理
+        //////////////////////////////////////////////////////
+
+        private void DataGridView_MouseUp(object sender, MouseEventArgs e)
+        {
+            dataGridView.CommitEdit(DataGridViewDataErrorContexts.Commit);
+        }
+        private void エルダEToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            eluda--;
+            if (eluda < 0) eluda = 3;
+            EludaShow(eluda);
+        }
+
+        private void 赤ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.Column_Juwel_Red.Visible)
+                this.Column_Juwel_Red.Visible = false;
+            else this.Column_Juwel_Red.Visible = true;
+        }
+
+        private void 青ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.Column_Juwel_Blue.Visible)
+                this.Column_Juwel_Blue.Visible = false;
+            else this.Column_Juwel_Blue.Visible = true;
+        }
+
+        private void 緑ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.Column_Juwel_Green.Visible)
+                this.Column_Juwel_Green.Visible = false;
+            else this.Column_Juwel_Green.Visible = true;
+        }
+
+        private void 黄ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.Column_Juwel_Yellow.Visible)
+                this.Column_Juwel_Yellow.Visible = false;
+            else this.Column_Juwel_Yellow.Visible = true;
+        }
+
+        private void 紫ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (this.Column_Juwel_Purple.Visible)
+                this.Column_Juwel_Purple.Visible = false;
+            else this.Column_Juwel_Purple.Visible = true;
+        }
+
+        private void ALLToolStripMenuItem1_Click(object sender, EventArgs e)
+        {
+            this.Column_Juwel_Red.Visible = false; // 赤
+            this.Column_Juwel_Blue.Visible = false; // 青
+            this.Column_Juwel_Green.Visible = false; // 緑
+            this.Column_Juwel_Yellow.Visible = false; // 黄
+            this.Column_Juwel_Purple.Visible = false; // 紫
+        }
+
+        private void ALLToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            this.Column_Jack.Visible = false; 
+            this.Column_HoneTail.Visible = false;
+            this.Column_PinkBeen.Visible = false;
+            this.Column_Signus.Visible = false;
+        }
+
+        private void 追加AToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            dataGridView.Sort(Column_ID,
+                     System.ComponentModel.ListSortDirection.Ascending);
+            if (System.Windows.Forms.Screen.PrimaryScreen.Bounds.Height - 300 > this.Height)
+            {
+                this.Height += 26;
+            }
+
+            string ID;
+
+
+            if (dataGridView.Rows.Count < 9)
+            {
+                ID = ("0" + (dataGridView.Rows.Count + 1)).ToString();
+            }
+            else
+            {
+                ID = (dataGridView.Rows.Count + 1).ToString();
+            }
+            dataGridView.Rows.Add(ID, "", false, false, false, false,
+                                            false, false, false,
+                                                false, false, false, false, false,
+                                                "", "", "", "", "");
+            dataGridView.CurrentCell = dataGridView.Rows[dataGridView.Rows.Count-1].Cells[0];
+        }
+
+        private void 削除DToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+
+            if (dataGridView.Rows.Count == 0) { return; }
+            int selectrow = dataGridView.CurrentRow.Index;
+            var id = dataGridView.Rows[selectrow].Cells[0].Value;
+            var name = dataGridView.Rows[selectrow].Cells[1].Value;
+
+            DialogResult dr = MessageBox.Show
+                ("ID：「" + id + "」\n" + name + "を削除しますか？", "確認", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
+            if (dr == DialogResult.OK)
+            {
+                int index = selectrow;
+
+                //行数の最後から指定位置までIDを修正する
+                for (int i = dataGridView.Rows.Count - 1; i > index; i--)
+                {
+                    dataGridView.Rows[i].Cells[0].Value = dataGridView.Rows[i - 1].Cells[0].Value;
+                }
+                //指定行を削除
+                dataGridView.Rows.RemoveAt(selectrow);
+                
+                //// フォームサイズの修正
+                //this.Height = FORM_MIN_HEIGHT + ((dataGridView.Rows.Count -1)  * 25);
+                ////if (dataGridView.Rows.Count >  20) 
+                //if (this.Height > 1080)
+                //    this.Height -= 26;
+                //    if (this.Height < 18)
+                //        this.Height = 18;
+            }
+            dataGridView.CommitEdit(DataGridViewDataErrorContexts.Commit);
+        }
+
+        private void 常に最前面にWToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (!windowFront)
+            {
+                windowFront = true;
+                this.TopMost = true;
+                ToolStripMenuItem1.Text = "最前面に表示中(&W)";
+            }
+            else
+            {
+                windowFront = false;
+                this.TopMost = false;
+                ToolStripMenuItem1.Text = "最前面を解除中(&W)";
+            }
+        }
+
+        private void 保存ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            DataSave();
+        }
+
+        private void 下へDToolStripMenuItem_Click(object sender, EventArgs e)
+        {   
+            if (dataGridView.Rows.Count == 0) return;
+
+            // 選択した行の下が無いならリターン
+            if (dataGridView.CurrentRow.Index + 1 >= dataGridView.RowCount) return;
+
+            // 選択した場所を保存
+            int selectRow = dataGridView.CurrentRow.Index;
+            int selectCoulum = dataGridView.CurrentCell.ColumnIndex;
+
+            // 一時退避用メモリ
+            string[] tempString = new string[CELL_MAX];
+
+            // データの移動開始
+            for (int i = 1; i < tempString.Length; i++)
+                tempString[i] = dataGridView.Rows[selectRow + 1].Cells[i].Value.ToString();
+
+            for (int i = 1; i < tempString.Length; i++)
+                dataGridView.Rows[selectRow + 1].Cells[i].Value
+                    = dataGridView.Rows[selectRow + 0].Cells[i].Value;
+
+            for (int i = 1; i < tempString.Length; i++)
+                dataGridView.Rows[selectRow + 0].Cells[i].Value
+                    = tempString[i];
+
+            dataGridView.CurrentCell = dataGridView.Rows[selectRow + 1].Cells[selectCoulum];
+        }
+
+        private void 上へUToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (dataGridView.Rows.Count == 0) return;
+
+            // 選択した行の上が無いならリターン
+            if (dataGridView.CurrentRow.Index == 0) return;
+
+            // 選択した場所を保存
+            int selectRow = dataGridView.CurrentRow.Index;
+            int selectCoulum = dataGridView.CurrentCell.ColumnIndex;
+
+            // 一時退避用メモリ
+            string[] tempString = new string[CELL_MAX];
+
+            // データの移動開始
+            for (int i = 1; i < tempString.Length; i++)
+                tempString[i] = dataGridView.Rows[selectRow - 1].Cells[i].Value.ToString();
+
+            for (int i = 1; i < tempString.Length; i++)
+                dataGridView.Rows[selectRow - 1].Cells[i].Value
+                    = dataGridView.Rows[selectRow + 0].Cells[i].Value;
+
+            for (int i = 1; i < tempString.Length; i++)
+                dataGridView.Rows[selectRow + 0].Cells[i].Value
+                    = tempString[i];
+
+            dataGridView.CurrentCell = dataGridView.Rows[selectRow - 1].Cells[selectCoulum];
+        }
+
+        private void 日課ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            DayDataClear();
+        }
+
+        private void 週間ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            WeekDataClear();
+        }
+
+        //////////////////////////////////////////////////////
+        // タイマー処理
+        //////////////////////////////////////////////////////
+        public void Timer_Tick(object sender, EventArgs e) // 重くなるなら単純化考慮
+        {
+            DateTime nowDateTime = DateTime.Now;
+
+            switch(nowDateTime.DayOfWeek)
+            {
+                case DayOfWeek.Sunday:   JapanWeekName = "(日)"; break;
+                case DayOfWeek.Monday:   JapanWeekName = "(月)"; break;
+                case DayOfWeek.Tuesday:  JapanWeekName = "(火)"; break;
+                case DayOfWeek.Wednesday:JapanWeekName = "(水)"; break;
+                case DayOfWeek.Thursday: JapanWeekName = "(木)"; break;
+                case DayOfWeek.Friday:   JapanWeekName = "(金)"; break;
+                case DayOfWeek.Saturday: JapanWeekName = "(土)"; break;
+            }
+            toolStripStatusLabel.Text =
+                nowDateTime.Year.ToString() + "年" + nowDateTime.Month.ToString() + "月" +
+                 nowDateTime.Day.ToString() + "日 " + JapanWeekName + " " +
+                  nowDateTime.Hour.ToString() + "時" + nowDateTime.Minute.ToString() + "分" +
+                   nowDateTime.Second.ToString() + "秒";
+
+            // 起動時に日付が変わったら処理する
+            if (startTimeData.Day != nowDateTime.Day)
+            {
+                // 日曜から月曜になったら週間をクリアする
+                if (startTimeData.DayOfWeek == DayOfWeek.Sunday && nowDateTime.DayOfWeek == DayOfWeek.Monday)
+                {
+                    WeekDataClear();                    
+                }
+                DayDataClear();
+                startTimeData = DateTime.Now;
+            }            
+        }        
+    }
+}
