@@ -50,7 +50,7 @@ namespace MapleStory_Task_v2
         {
             string filePath = "data.csv";
 
-            // 読み込み成功したら
+            // 読み込みが成功したら
             if (File.Exists(filePath)) {
                 StreamReader sr = new StreamReader("data.csv");
                 int lines = int.Parse(sr.ReadLine());
@@ -89,10 +89,8 @@ namespace MapleStory_Task_v2
                 this.Column_HoneTail.Visible = Convert.ToBoolean(textData[11]);   // ホーンテイル
                 this.Column_PinkBeen.Visible = Convert.ToBoolean(textData[12]);       // ピンクビーン
                 this.Column_Signus.Visible = Convert.ToBoolean(textData[13]);     // シグナス
-                               
 
                 string line;
-
                 string[] array = new string[CELL_MAX];
 
                 //残りの全行読み込み
@@ -345,7 +343,6 @@ namespace MapleStory_Task_v2
 
             string ID;
 
-
             if (dataGridView.Rows.Count < 9)
             {
                 ID = ("0" + (dataGridView.Rows.Count + 1)).ToString();
@@ -363,7 +360,6 @@ namespace MapleStory_Task_v2
 
         private void 削除DToolStripMenuItem_Click(object sender, EventArgs e)
         {
-
             if (dataGridView.Rows.Count == 0) { return; }
             int selectrow = dataGridView.CurrentRow.Index;
             var id = dataGridView.Rows[selectrow].Cells[0].Value;
